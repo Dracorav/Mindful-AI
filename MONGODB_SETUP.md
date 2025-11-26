@@ -30,7 +30,7 @@ that isn't whitelisted.
    - This adds `0.0.0.0/0` (all IPs)
 8. Click **"Confirm"**
 9. **⏳ Wait 1-2 minutes** for the change to apply
-10. Test again: `node test-mongodb.js`
+10. Test again: `node dev/test-mongodb.js`
 
 ---
 
@@ -60,7 +60,7 @@ that isn't whitelisted.
 6. Add description (e.g., "My Home IP")
 7. Click **"Confirm"**
 8. **⏳ Wait 1-2 minutes** for the change to apply
-9. Test: `node test-mongodb.js`
+9. Test: `node dev/test-mongodb.js`
 
 ---
 
@@ -95,7 +95,7 @@ net start MongoDB
 
 #### Test:
 ```powershell
-node test-mongodb.js
+node dev/test-mongodb.js
 ```
 
 ---
@@ -106,7 +106,7 @@ After whitelisting your IP, test the connection:
 
 ```powershell
 cd 'c:\Users\DEVENDER SINGH\Downloads\MindFul AI'
-node test-mongodb.js
+node dev/test-mongodb.js
 ```
 
 **Success Output:**
@@ -187,7 +187,7 @@ Should show: **✅ MongoDB URI Configured**
 
 And test:
 ```powershell
-node test-mongodb.js
+node dev/test-mongodb.js
 ```
 
 Should show: **✅ CONNECTION SUCCESSFUL!**
