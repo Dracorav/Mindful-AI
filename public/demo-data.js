@@ -1,6 +1,9 @@
 // demo-data.js
 // Populate localStorage with demo user, mood entries and tasks if missing
+// Only run demo seeding when explicitly requested (query ?demo=true) OR on localhost
 (function(){
+  const isDemoMode = (typeof window !== 'undefined') && (window.location && (window.location.search.includes('demo=true') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+  if (!isDemoMode) return; // Do not auto-insert demo data in production
   try {
     if (!localStorage.getItem('currentUser')) {
       const demoUser = { name: 'Demo User', email: 'demo@local', quizScore: 12 };

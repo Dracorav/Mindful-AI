@@ -7,10 +7,82 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 
+console.log('SERVER: env loaded');
+
 const app = express();
-app.use(cors());
+console.log('SERVER: express app created');
+// Instrument route registration to log paths and detect invalid patterns
+const _origGet = app.get.bind(app);
+const _origPost = app.post.bind(app);
+const _origUse = app.use.bind(app);
+const _origDelete = app.delete ? app.delete.bind(app) : null;
+const { pathToRegexp } = require('path-to-regexp');
+
+app.get = (path, ...args) => {
+  console.log('[ROUTES] registering GET', path);
+  try { if (typeof path === 'string') pathToRegexp(path); } catch(e) { console.error('[ROUTES] pathToRegexp failed for GET', path, e); throw e; }
+  return _origGet(path, ...args);
+};
+app.post = (path, ...args) => {
+  console.log('[ROUTES] registering POST', path);
+  try { if (typeof path === 'string') pathToRegexp(path); } catch(e) { console.error('[ROUTES] pathToRegexp failed for POST', path, e); throw e; }
+  return _origPost(path, ...args);
+};
+app.use = (path, ...args) => {
+  try {
+    const pathDesc = typeof path === 'string' ? path : (path && path.name) ? path.name : '[Function]';
+    console.log('[ROUTES] registering USE', pathDesc);
+  } catch (e) {
+    console.log('[ROUTES] registering USE (unknown path)', e?.message || e);
+  }
+  try {
+    if (typeof path === 'string') { try { pathToRegexp(path); } catch(e) { console.error('[ROUTES] pathToRegexp failed for USE', path, e); throw e; } }
+    return _origUse(path, ...args);
+  } catch (err) {
+    console.error('[ROUTES] app.use error for', path, err && err.stack ? err.stack : err);
+    throw err;
+  }
+};
+if (_origDelete) {
+  app.delete = (path, ...args) => {
+    console.log('[ROUTES] registering DELETE', path);
+    return _origDelete(path, ...args);
+  };
+}
+// CORS configuration
+const allowedOrigin = process.env.FRONTEND_ORIGIN || '*';
+console.log('SERVER: allowedOrigin=', allowedOrigin);
+
+console.log('SERVER: registering cors middleware');
+let corsMiddleware;
+try {
+  corsMiddleware = cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (like curl, mobile apps, or server-to-server)
+    if (!origin) return callback(null, true);
+    // allow all when FRONTEND_ORIGIN is '*', or allow a comma-separated list
+    if (allowedOrigin === '*' || allowedOrigin.split(',').includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('CORS policy: Origin not allowed'), false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  });
+  console.log('SERVER: cors middleware created');
+} catch (e) {
+  console.error('CORS creation error:', e && e.stack ? e.stack : e);
+  throw e;
+}
+app.use(corsMiddleware);
+
+// Ensure preflight requests are handled
+app.options('*', cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// (Removed diagnostic wrapper to avoid interfering with Express route registration.)
 
 // Basic route for testing
 app.get('/', (req, res) => {
