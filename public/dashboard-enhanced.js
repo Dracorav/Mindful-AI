@@ -29,6 +29,34 @@ const DashboardEnhanced = {
     await this.loadMoodHistory();
     await this.loadTasksData();
     await this.initializeCharts();
+    // Listen for XP updates from other modules/tabs
+    try {
+      // Custom event used when scripts update localStorage directly
+      window.addEventListener('userXPUpdated', (e) => {
+        try {
+          const total = e?.detail?.total ?? this.getUserXP();
+          this.setUserXP(Number(total));
+        } catch (err) { console.warn('[Gamification] userXPUpdated handler error', err); }
+      });
+
+      // Listen to storage events (from other tabs) so XP display updates across windows
+      window.addEventListener('storage', (e) => {
+        if (!e) return;
+        if (e.key === 'userXP') {
+          try {
+            this.streakData.xp = this.getUserXP();
+            this.updateXPDisplay();
+            if (this.progressChart) {
+              try {
+                this.progressChart.data.datasets[0].data[1] = this.streakData.xp;
+                this.progressChart.update();
+              } catch (err) {}
+            }
+          } catch (err) { console.warn('[Gamification] storage event handler error', err); }
+        }
+      });
+    } catch (e) { console.warn('[Gamification] failed to attach XP listeners', e); }
+
     this.showOnboarding();
     this.loadSmartRecommendations();
     this.wireTaskUI();

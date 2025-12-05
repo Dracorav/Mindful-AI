@@ -1,81 +1,152 @@
-// Diary functionality
+// diary.js – improved diary page logic
 
-// Get user email from localStorage
-let userEmail = localStorage.getItem('email');
+let userEmail = localStorage.getItem('email') || null;
+let diaryEntries = []; // cache of entries from backend
+const API_BASE = window.location.origin;
 
-// Initialize the diary page
-function initDiary() {
-  // Set email field if available
-  if (userEmail) {
-    document.getElementById('userEmail').value = userEmail;
-    loadHistory(userEmail);
-  }
+// ------------------ Helper: toast ------------------
 
-  // Add event listeners
-  document.getElementById('userEmail').addEventListener('change', function() {
-    userEmail = this.value;
-    localStorage.setItem('email', userEmail);
-    loadHistory(userEmail);
-  });
-  
-  // Load user profile information
-  loadUserProfile();
-}
+function showToast(type, message) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
 
-// Load user profile information
-function loadUserProfile() {
-  const user = JSON.parse(localStorage.getItem("currentUser"));
-  if (user) {
-    const fullName = user.name || 'User';
-    const firstName = fullName.split(" ")[0];
-    const initials = fullName
-      .split(" ")
-      .map(n => n[0])
-      .join("")
-      .toUpperCase();
+  const msgEl = toast.querySelector('.toast-message');
+  const iconEl = toast.querySelector('.toast-icon');
 
-    // Update user avatar and name in the sidebar
-    if (document.getElementById("user-avatar")) {
-      document.getElementById("user-avatar").textContent = initials;
-    }
-    if (document.getElementById("user-avatar-sidebar")) {
-      document.getElementById("user-avatar-sidebar").textContent = initials;
-    }
-    if (document.getElementById("sidebar-user-name")) {
-      document.getElementById("sidebar-user-name").textContent = fullName;
-    }
+  toast.classList.remove('toast--error', 'toast--success');
 
-    // Update depression level
-    const score = user.quizScore || 0;
-    let level = "Unknown";
-
-    if (score <= 10) level = "No Depression";
-    else if (score <= 20) level = "Mild Depression";
-    else if (score <= 35) level = "Moderate Depression";
-    else if (score <= 50) level = "Moderately Severe Depression";
-    else level = "Severe Depression";
-
-    if (document.getElementById("depression-level")) {
-      document.getElementById("depression-level").textContent = level;
-    }
+  if (type === 'error') {
+    toast.classList.add('toast--error');
+    if (iconEl) iconEl.textContent = '⚠️';
   } else {
-    // Redirect to login if no user is found
-    window.location.href = "diary.html";
+    toast.classList.add('toast--success');
+    if (iconEl) iconEl.textContent = '✅';
   }
+
+  if (msgEl) msgEl.textContent = message;
+
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2600);
 }
 
-// Submit diary entry
-async function submitEntry() {
-  const email = document.getElementById('userEmail').value;
-  const text = document.getElementById('diaryText').value;
+// ------------------ User profile ------------------
 
-  if (!email || !text) {
-    alert('Please enter both email and diary text');
+function loadUserProfile() {
+  const userData = localStorage.getItem('currentUser');
+  if (!userData) {
+    // No logged-in user → redirect to login/landing
+    window.location.href = 'landingpage.html';
     return;
   }
 
+  let user;
   try {
-    const res = await fetch('/api/diary', {
+    user = JSON.parse(userData);
+  } catch {
+    window.location.href = 'landingpage.html';
+    return;
+  }
+
+  const fullName = user.name || 'User';
+  const initials = fullName
+    .split(' ')
+    .filter(Boolean)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  // Avatar in header and sidebar
+  const avatarHeader = document.getElementById('user-avatar');
+  const avatarSidebar = document.getElementById('user-avatar-sidebar');
+  const nameSidebar = document.getElementById('sidebar-user-name');
+
+  if (avatarHeader) avatarHeader.textContent = initials;
+  if (avatarSidebar) avatarSidebar.textContent = initials;
+  if (nameSidebar) nameSidebar.textContent = fullName;
+
+  // Depression level from quizScore
+  const score = user.quizScore || 0;
+  let level = 'Unknown';
+
+  if (score <= 10) level = 'No Depression';
+  else if (score <= 20) level = 'Mild Depression';
+  else if (score <= 35) level = 'Moderate Depression';
+  else if (score <= 50) level = 'Moderately Severe Depression';
+  else level = 'Severe Depression';
+
+  const levelEl = document.getElementById('depression-level');
+  if (levelEl) levelEl.textContent = level;
+
+  // Prefer user's email for diary
+  if (user.email) {
+    userEmail = user.email;
+    localStorage.setItem('email', user.email);
+  }
+}
+
+// ------------------ Draft & counters ------------------
+
+function updateCounters() {
+  const textArea = document.getElementById('diaryText');
+  const wordEl = document.getElementById('wordCount');
+  const charEl = document.getElementById('charCount');
+  if (!textArea || !wordEl || !charEl) return;
+
+  const text = textArea.value || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const chars = text.length;
+
+  wordEl.textContent = `Words: ${words}`;
+  charEl.textContent = `Characters: ${chars}`;
+}
+
+function saveDraft() {
+  const textArea = document.getElementById('diaryText');
+  if (!textArea || !userEmail) return;
+  const key = `diaryDraft_${userEmail}`;
+  localStorage.setItem(key, textArea.value);
+}
+
+function loadDraft() {
+  const textArea = document.getElementById('diaryText');
+  if (!textArea || !userEmail) return;
+  const key = `diaryDraft_${userEmail}`;
+  const draft = localStorage.getItem(key);
+  if (draft) {
+    textArea.value = draft;
+    updateCounters();
+  }
+}
+
+// ------------------ API calls ------------------
+
+async function submitEntry() {
+  const emailInput = document.getElementById('userEmail');
+  const textArea = document.getElementById('diaryText');
+  const reframedEl = document.getElementById('reframedOutput');
+  const submitBtn = document.getElementById('btnSubmit');
+
+  if (!emailInput || !textArea || !reframedEl) return;
+
+  const email = emailInput.value.trim();
+  const text = textArea.value.trim();
+
+  if (!email || !text) {
+    showToast('error', 'Please fill in your email and write something in your diary.');
+    return;
+  }
+
+  userEmail = email;
+  localStorage.setItem('email', email);
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>⏳</span><span>Saving…</span>';
+    }
+
+    const res = await fetch(`${API_BASE}/api/diary`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, text })
@@ -83,59 +154,140 @@ async function submitEntry() {
 
     const data = await res.json();
 
+    if (!res.ok) {
+      throw new Error(data.error || `Server error: ${res.status}`);
+    }
+
     if (data.reframed) {
-      document.getElementById('reframedOutput').innerText = data.reframed;
-      document.getElementById('diaryText').value = '';
-      loadHistory(email);
+      reframedEl.textContent = data.reframed;
     } else {
-      alert(data.error || "An error occurred.");
+      reframedEl.textContent = 'Saved, but no reframed text was returned.';
     }
+
+    // Clear draft for this user
+    const draftKey = `diaryDraft_${userEmail}`;
+    localStorage.removeItem(draftKey);
+    textArea.value = '';
+    updateCounters();
+
+    await loadHistory(email);
+    showToast('success', 'Diary entry saved successfully 💾');
   } catch (err) {
-    console.error(err);
-    alert("Could not connect to the server.");
+    console.error('Submit error:', err);
+    showToast('error', 'Could not save your entry. Please try again.');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span>💾</span><span>Save Entry</span>';
+    }
   }
 }
 
-// Load diary history
 async function loadHistory(email) {
-  if (!email) return;
-  
-  try {
-    const res = await fetch(`/api/diary/${email}`);
-    const data = await res.json();
-    const list = document.getElementById('history');
-    list.innerHTML = "";
+  const list = document.getElementById('history');
+  const emptyState = document.getElementById('historyEmpty');
+  const searchInput = document.getElementById('historySearch');
 
-    if (data.entries && data.entries.length > 0) {
-      data.entries.forEach(entry => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <div class="label">🕒 ${new Date(entry.date).toLocaleString()}</div>
-          <div><span class="label">Original:</span><br>${entry.original}</div>
-          <div><span class="label">Reframed:</span><br><span class="reframed">${entry.reframed}</span></div>
-        `;
-        list.appendChild(li);
-      });
-    } else {
-      list.innerHTML = "<li>No diary entries found.</li>";
+  if (!list || !email) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/diary/${encodeURIComponent(email)}`);
+    const data = await res.json();
+
+    diaryEntries = Array.isArray(data.entries) ? data.entries : [];
+
+    if (!diaryEntries.length) {
+      list.innerHTML = '';
+      if (emptyState) emptyState.style.display = 'block';
+      return;
     }
+
+    if (emptyState) emptyState.style.display = 'none';
+    renderHistoryList(diaryEntries, searchInput ? searchInput.value : '');
   } catch (err) {
-    console.error(err);
-    list.innerHTML = "<li>Could not load diary history.</li>";
+    console.error('History error:', err);
+    list.innerHTML = '<li class="empty-state">Could not load diary history.</li>';
+    if (emptyState) emptyState.style.display = 'none';
   }
 }
 
-// Reframe negative thoughts
-async function reframeNegativeThoughts() {
-  const text = document.getElementById('diaryText').value;
+function renderHistoryList(entries, searchTerm = '') {
+  const list = document.getElementById('history');
+  const emptyState = document.getElementById('historyEmpty');
+  if (!list) return;
 
+  const q = (searchTerm || '').toLowerCase();
+
+  const filtered = entries.filter(e => {
+    if (!q) return true;
+    const haystack = `${e.original || ''} ${e.reframed || ''}`.toLowerCase();
+    return haystack.includes(q);
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = '<li class="empty-state">No entries match your search.</li>';
+    if (emptyState) emptyState.style.display = 'none';
+    return;
+  }
+
+  const html = filtered
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .map(entry => {
+      const date = new Date(entry.date);
+      const dateLabel = date.toLocaleString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const preview = (entry.original || '')
+        .split('\n')[0]
+        .slice(0, 80)
+        .trim();
+
+      return `
+        <li>
+          <details>
+            <summary>
+              <span>${preview || 'Diary entry'}</span>
+              <span class="history-date">${dateLabel}</span>
+            </summary>
+            <div class="history-body">
+              <div><span class="label">Original:</span><br>${(entry.original || '').replace(/\n/g, '<br>')}</div>
+              ${
+                entry.reframed
+                  ? `<div style="margin-top:0.35rem;"><span class="label">Reframed:</span><br><span class="reframed">${entry.reframed.replace(/\n/g, '<br>')}</span></div>`
+                  : ''
+              }
+            </div>
+          </details>
+        </li>
+      `;
+    })
+    .join('');
+
+  list.innerHTML = html;
+}
+
+// ------------------ Sentiment / Reframe only ------------------
+
+async function reframeNegativeThoughts() {
+  const textArea = document.getElementById('diaryText');
+  const sentimentEl = document.getElementById('sentimentAnalysis');
+
+  if (!textArea || !sentimentEl) return;
+
+  const text = textArea.value.trim();
   if (!text) {
-    alert('Please enter some text to analyze.');
+    showToast('error', 'Write something in your diary first.');
     return;
   }
 
   try {
-    const res = await fetch('/api/sentiment', {
+    sentimentEl.value = 'Analyzing your text gently…';
+    const res = await fetch(`${API_BASE}/api/sentiment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -143,58 +295,130 @@ async function reframeNegativeThoughts() {
 
     const data = await res.json();
 
+    if (!res.ok) {
+      throw new Error(data.error || `Server error: ${res.status}`);
+    }
+
     if (data.sentiment) {
-      document.getElementById('sentimentAnalysis').value = data.sentiment;
+      sentimentEl.value = data.sentiment;
+      showToast('success', 'Sentiment analysis updated ✨');
     } else {
-      alert(data.error || "An error occurred.");
+      sentimentEl.value = 'No sentiment text returned from server.';
     }
   } catch (err) {
-    console.error(err);
-    alert("Could not connect to the server.");
+    console.error('Sentiment error:', err);
+    sentimentEl.value = '';
+    showToast('error', 'Could not analyze your text. Please try again.');
   }
 }
 
-// Mobile menu functionality
+// ------------------ Mobile menu ------------------
+
 function setupMobileMenu() {
   const menuToggle = document.getElementById('menu-toggle');
   const navMenu = document.getElementById('nav-menu');
-  
-  if (menuToggle && navMenu) {
-    // Toggle menu when clicking the menu button
-    menuToggle.addEventListener('click', function() {
-      menuToggle.classList.toggle('active');
-      navMenu.classList.toggle('active');
+
+  if (!menuToggle || !navMenu) return;
+
+  menuToggle.addEventListener('click', () => {
+    menuToggle.classList.toggle('active');
+    navMenu.classList.toggle('active');
+  });
+
+  // Close on nav link click
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', () => {
+      menuToggle.classList.remove('active');
+      navMenu.classList.remove('active');
     });
-    
-    // Close menu when clicking on a nav link (mobile)
-    const navLinks = document.querySelectorAll('.nav-link');
-    navLinks.forEach(link => {
-      link.addEventListener('click', () => {
-        menuToggle.classList.remove('active');
-        navMenu.classList.remove('active');
-      });
-    });
-    
-    // Close menu when clicking outside (mobile)
-    document.addEventListener('click', function(event) {
-      const isClickInsideNav = navMenu.contains(event.target);
-      const isClickOnToggle = menuToggle.contains(event.target);
-      
-      if (!isClickInsideNav && !isClickOnToggle && navMenu.classList.contains('active')) {
-        menuToggle.classList.remove('active');
-        navMenu.classList.remove('active');
-      }
-    });
-  }
+  });
+
+  // Close when clicking outside
+  document.addEventListener('click', event => {
+    const isInsideNav = navMenu.contains(event.target);
+    const isToggle = menuToggle.contains(event.target);
+    if (!isInsideNav && !isToggle && navMenu.classList.contains('active')) {
+      menuToggle.classList.remove('active');
+      navMenu.classList.remove('active');
+    }
+  });
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  initDiary();
-  setupMobileMenu();
-});
+// ------------------ Quick prompts ------------------
 
-// Export functions for global access
+function setupPrompts() {
+  const textArea = document.getElementById('diaryText');
+  if (!textArea) return;
+
+  document.querySelectorAll('.prompt-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const template = btn.dataset.template || '';
+      if (!template) return;
+
+      if (!textArea.value.trim()) {
+        textArea.value = template + ' ';
+      } else {
+        textArea.value = textArea.value.trimEnd() + '\n\n' + template + ' ';
+      }
+      textArea.focus();
+      updateCounters();
+      saveDraft();
+    });
+  });
+}
+
+// ------------------ Init ------------------
+
+function initDiary() {
+  loadUserProfile();
+
+  const emailInput = document.getElementById('userEmail');
+  if (emailInput) {
+    if (userEmail) emailInput.value = userEmail;
+    emailInput.addEventListener('change', () => {
+      userEmail = emailInput.value.trim();
+      localStorage.setItem('email', userEmail);
+      loadDraft();
+      loadHistory(userEmail);
+    });
+  }
+
+  const textArea = document.getElementById('diaryText');
+  if (textArea) {
+    textArea.addEventListener('input', () => {
+      updateCounters();
+      saveDraft();
+    });
+  }
+
+  // Initial draft + counters
+  if (userEmail && textArea) {
+    loadDraft();
+    updateCounters();
+    loadHistory(userEmail);
+  }
+
+  const btnSubmit = document.getElementById('btnSubmit');
+  if (btnSubmit) btnSubmit.addEventListener('click', submitEntry);
+
+  const btnReframe = document.getElementById('btnReframe');
+  if (btnReframe) btnReframe.addEventListener('click', reframeNegativeThoughts);
+
+  const searchInput = document.getElementById('historySearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      renderHistoryList(diaryEntries, searchInput.value);
+    });
+  }
+
+  setupMobileMenu();
+  setupPrompts();
+}
+
+// DOM ready
+document.addEventListener('DOMContentLoaded', initDiary);
+
+// Expose in case you still call them inline somewhere
 window.submitEntry = submitEntry;
 window.loadHistory = loadHistory;
 window.reframeNegativeThoughts = reframeNegativeThoughts;

@@ -22,7 +22,7 @@ const articlesData = [
     category: 'India Resources',
     excerpt: 'A curated list of hotlines, government programs, and NGO services offering mental health support across Indian states and major cities.',
     url: 'https://nimhans.ac.in',
-    image: 'https://images.unsplash.com/photo-1516627145497-ae6ab60908c9?w=800&h=400&fit=crop',
+    image: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=2070',
     date: '2024-01-05'
   },
   {
@@ -31,8 +31,8 @@ const articlesData = [
     source: 'Psychology Today',
     category: 'Anxiety',
     excerpt: 'Practical Cognitive Behavioural Therapy (CBT) exercises to challenge anxious thoughts and build mental resilience.',
-    url: 'https://www.psychologytoday.com/us/basics/cognitive-behavioral-therapy',
-    image: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&h=400&fit=crop',
+    url: 'https://www.verywellmind.com/cognitive-behavior-therapy-2795542',
+    image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=2070',
     date: '2022-11-20'
   },
   {
@@ -41,7 +41,7 @@ const articlesData = [
     source: 'Tech Wellness',
     category: 'Tools',
     excerpt: 'Comparison of popular meditation apps, their strengths and pricing to help you pick the right one for consistent practice.',
-    url: 'https://www.insight-timer.com',
+    url: 'https://www.forbes.com/health/wellness/best-meditation-apps/',
     image: 'https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=800&h=400&fit=crop',
     date: '2024-03-02'
   },
@@ -51,7 +51,7 @@ const articlesData = [
     source: 'Nutrition Today',
     category: 'Wellness',
     excerpt: 'An overview of nutrients, diet patterns, and simple recipes that support mood and cognitive function.',
-    url: 'https://www.health.harvard.edu/mind-and-mood',
+    url: 'https://www.health.harvard.edu/blog/nutritional-psychiatry-your-brain-on-food-201511168626',
     image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&h=400&fit=crop',
     date: '2023-06-18'
   },
@@ -61,7 +61,7 @@ const articlesData = [
     source: 'World Health Organization',
     category: 'Global Health',
     excerpt: 'WHO overview on global mental health priorities, strategies for integration of mental health into health systems, and resources for support.',
-    url: 'https://www.who.int/health-topics/mental-health',
+    url: 'https://www.who.int/news-room/fact-sheets/detail/mental-health-strengthening-our-response',
     image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&h=400&fit=crop',
     date: '2021-10-10'
   },
@@ -72,7 +72,7 @@ const articlesData = [
     category: 'Research',
     excerpt: 'Authoritative information about mental disorders, treatments, and cutting-edge research from the U.S. National Institute of Mental Health.',
     url: 'https://www.nimh.nih.gov/health/topics',
-    image: 'https://images.unsplash.com/photo-1576091160535-112f2b40c7b2?w=800&h=400&fit=crop',
+    image: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=2070',
     date: '2023-08-01'
   },
   {
@@ -81,8 +81,8 @@ const articlesData = [
     source: 'NHS (UK)',
     category: 'Wellbeing',
     excerpt: 'Practical advice and guides on managing common mental health problems, improving wellbeing, and finding local support in the UK.',
-    url: 'https://www.nhs.uk/mental-health/',
-    image: 'https://images.unsplash.com/photo-1489749798305-ed7881ed4c5c?w=800&h=400&fit=crop',
+    url: 'https://www.nhs.uk/nhs-services/mental-health-services/',
+    image: 'https://images.unsplash.com/photo-1526256262350-7da7584cf5eb?q=80&w=2070',
     date: '2024-02-14'
   },
   {
@@ -91,8 +91,8 @@ const articlesData = [
     source: 'Mayo Clinic',
     category: 'Health',
     excerpt: 'Trusted, clinician-reviewed articles on mental health conditions, symptoms, and treatments with practical tips for self-care.',
-    url: 'https://www.mayoclinic.org/healthy-lifestyle/adult-health/in-depth/mental-health/art-20046477',
-    image: 'https://images.unsplash.com/photo-1516627145497-ae6ab60908c9?w=800&h=400&fit=crop',
+    url: 'https://www.mayoclinic.org/healthy-lifestyle/adult-health/in-depth/mental-health/art-20044098',
+    image: 'https://images.unsplash.com/photo-1527236438218-d82077ae1f85?q=80&w=2070',
     date: '2022-05-20'
   },
   {
@@ -101,8 +101,8 @@ const articlesData = [
     source: 'Mental Health Foundation',
     category: 'Wellbeing',
     excerpt: 'Guides and evidence-based tips on looking after your mental health, from everyday wellbeing to understanding mental illnesses.',
-    url: 'https://www.mentalhealth.org.uk/publications/how-to-mental-health',
-    image: 'https://images.unsplash.com/photo-1528716321318-c852f09be34b?w=800&h=400&fit=crop',
+    url: 'https://www.mentalhealth.org.uk/explore-mental-health/articles/how-look-after-your-mental-health',
+    image: 'https://images.unsplash.com/photo-1527236438218-d82077ae1f85?q=80&w=2070',
     date: '2023-11-11'
   }
 ];
@@ -279,7 +279,7 @@ function showModal(article) {
   }
 
   modal.classList.add('active');
-  modal.setAttribute('aria-hidden', 'false');
+  
 }
 
 // Close modal
@@ -287,7 +287,7 @@ function closeModal() {
   const modal = qs('#articleModal');
   if (!modal) return;
   modal.classList.remove('active');
-  modal.setAttribute('aria-hidden', 'true');
+  
 }
 
 // Apply current filters and re-render

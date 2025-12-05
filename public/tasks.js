@@ -110,7 +110,12 @@ function toggleComplete(id) {
         try {
           const raw = localStorage.getItem('userXP');
           const cur = raw ? (JSON.parse(raw).total || 0) : 0;
-          localStorage.setItem('userXP', JSON.stringify({ total: cur + xpAward }));
+            const next = cur + xpAward;
+            localStorage.setItem('userXP', JSON.stringify({ total: next }));
+            // Notify any listeners in this window (and other windows via storage event)
+            try {
+              window.dispatchEvent(new CustomEvent('userXPUpdated', { detail: { total: next } }));
+            } catch (e) {}
         } catch (e) {}
       }
     }

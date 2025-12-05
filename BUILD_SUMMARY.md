@@ -17,7 +17,18 @@
 - ✅ Google Gemini AI API key configured
 - ✅ Environment variables loaded from .env file
 
-### 2. **Missing Files Created**
+### 2. **Recent Fixes & Enhancements**
+
+- ✅ Removed custom route-wrapping that caused `path-to-regexp` errors in Express 5
+- ✅ Fixed nested route bug in tasks API (moved `DELETE /api/tasks` outside `GET` block)
+- ✅ Added Demo Mode (use `?demo=true`) with seeded mood/tasks/XP/report data
+- ✅ Implemented XP system (+10 per completed task; Level = `floor(totalXP/100)+1`)
+- ✅ Dashboard charts now fall back: API → localStorage → demo data
+- ✅ Standardized navigation via `public/css/header.css` across pages
+- ✅ Fixed Face API model paths (client loads models from `/models`)
+- ✅ Moved MongoDB connectivity test to `dev/test-mongodb.js`
+
+### 3. **Missing Files Created**
 
 #### `community.html` ✨ NEW
 - **Location**: `/public/community.html`
@@ -30,7 +41,7 @@
   - Local storage persistence for posts
   - Fully styled responsive design
 
-### 3. **Navigation Links Fixed**
+### 4. **Navigation Links Fixed**
 
 Fixed broken navigation links across multiple pages:
 
@@ -41,7 +52,7 @@ Fixed broken navigation links across multiple pages:
 | `articles.html` | Navigation had placeholder `#` links | Updated to point to correct pages |
 | `about.html` | Navigation had placeholder `#` links | Updated to point to correct pages |
 
-### 4. **Navigation Structure Standardized**
+### 5. **Navigation Structure Standardized**
 
 All pages now have consistent navigation:
 - **Home** → `landingpage.html`
@@ -115,6 +126,7 @@ public/
 ### Tasks & Activities
 - `POST /api/tasks` - Create/update daily task
 - `GET /api/tasks/:email` - Get tasks with XP and streak tracking
+- `DELETE /api/tasks` - Delete a task by email/task/date
 
 ### Content
 - `GET /api/articles` - Get mental health articles
@@ -144,7 +156,7 @@ PORT=3000
 
 ### Start the Server
 ```powershell
-cd 'c:\Users\DEVENDER SINGH\Downloads\MindFul AI'
+cd <project-root>
 node server.js
 ```
 
@@ -167,6 +179,7 @@ node server.js
 - 🎯 **Daily Tasks** - Goal tracking with gamification (XP & Streaks)
 - 👥 **Community Forum** - Share experiences and support others
 - ⚙️ **Settings** - Personalization and preferences
+ - 🕹️ **Mini Games** - Calming games on `game.html`
 
 ### Security Features
 - User authentication with email/password

@@ -1,9 +1,9 @@
 # 🚀 Quick Start Guide - MindFul AI
 
 ## Prerequisites
-- Node.js (v14+) installed
-- MongoDB Atlas account (configured in .env)
-- Google Gemini API key (configured in .env)
+- Node.js (v16+ recommended)
+- MongoDB Atlas account (configured in `.env`), or run in Demo Mode without a DB
+- Google Gemini API key (configured in `.env`) for AI features
 
 ## Getting Started
 
@@ -13,12 +13,22 @@ npm install
 ```
 
 ### 2️⃣ Configure Environment
-Create/verify `.env` file in root directory with:
+Create/verify a `.env` file in the project root with:
 ```
 GOOGLE_API_KEY=your_api_key_here
 MONGODB_URI=your_mongodb_connection_string
 PORT=3000
 NODE_ENV=development
+```
+
+Optional (Windows PowerShell) helper to create `.env` quickly:
+```powershell
+Set-Content -Path .env -Value @"
+GOOGLE_API_KEY=your_api_key_here
+MONGODB_URI=your_mongodb_connection_string
+PORT=3000
+NODE_ENV=development
+"@
 ```
 
 ### 3️⃣ Start the Server
@@ -39,6 +49,8 @@ Server running on http://localhost:3000
 - **Community**: http://localhost:3000/public/community.html
 - **Chatbot**: http://localhost:3000/public/chatbot.html
 - **Dashboard**: http://localhost:3000/public/dashboard.html
+
+Tip: Add `?demo=true` to any page URL to run in Demo Mode (no backend required), e.g. `http://localhost:3000/public/dashboard.html?demo=true`.
 
 ---
 
@@ -92,6 +104,8 @@ fetch('http://localhost:3000/api/chat', {
 })
 ```
 
+Note: The server uses Gemini model `gemini-2.5-flash-preview-05-20`. Ensure your API key has access.
+
 ### Test Quiz Submission
 ```javascript
 fetch('http://localhost:3000/api/submit-quiz', {
@@ -103,6 +117,11 @@ fetch('http://localhost:3000/api/submit-quiz', {
   })
 })
 ```
+
+### Demo Mode (No Backend)
+- Add `?demo=true` to page URLs to auto-seed demo data (mood history, tasks, XP, report).
+- Example: `http://localhost:3000/public/dashboard.html?demo=true`.
+- Demo Mode is also auto-enabled on `localhost` for development.
 
 ---
 
@@ -127,6 +146,11 @@ fetch('http://localhost:3000/api/submit-quiz', {
 PORT=3001
 ```
 
+### Issue: Route pattern error (path-to-regexp)
+**Solution**:
+- Ensure you are on the latest `server.js` with route-wrapping removed (Express 5 registers routes directly).
+- Restart the server after pulling changes.
+
 ### Issue: CORS Errors
 **Solution**:
 - Verify your frontend URL is correct
@@ -147,6 +171,8 @@ MindFul AI/
 │   ├── *.css         # Stylesheets
 │   ├── *.js          # Client-side scripts
 │   └── image.png     # Assets
+├── dev/
+│   └── test-mongodb.js  # Connectivity test script
 └── BUILD_SUMMARY.md   # Build documentation
 ```
 
@@ -165,6 +191,7 @@ MindFul AI/
 - Mood tracking
 - Diary with reframing
 - Progress reports
+- Demo Mode with seeded data (optional)
 
 ### Community
 - Share posts
@@ -179,6 +206,9 @@ MindFul AI/
 2. **Local Storage**: Frontend uses browser localStorage for session data
 3. **Database**: All user data stored in MongoDB Atlas
 4. **AI Responses**: Powered by Google Gemini API
+5. **Gamification**: Completing tasks awards `+10 XP`; Level = `floor(totalXP/100) + 1`
+6. **Charts Fallback**: Dashboard charts load from API → localStorage → demo data
+7. **Face API Models**: Client loads models from `/public/models` (fixed path)
 
 ---
 

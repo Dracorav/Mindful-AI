@@ -10,6 +10,10 @@
 ### ✅ Completed Tasks
 
 #### 1. **Server Started Successfully**
+#### 1a. **Stability Fixes**
+- Removed custom route-wrapping that conflicted with Express 5 `path-to-regexp`
+- Fixed nested route in tasks API (`DELETE /api/tasks` moved out of `GET` block)
+
 - Express.js server running on `http://localhost:3000`
 - Port: 3000 (configurable via PORT in .env)
 - All middleware configured (CORS, body-parser, static files)
@@ -29,6 +33,13 @@
 | `public/about.html` | Updated 2 placeholder links |
 
 #### 4. **Documentation Created**
+#### 5. **New Features**
+- Demo Mode via `?demo=true` (auto-seeded mood/tasks/XP/report)
+- Gamification: `+10 XP` per completed task; Level = `floor(totalXP/100)+1`
+- Dashboard chart fallbacks: API → localStorage → demo data
+- Shared header styles via `public/css/header.css`
+- Face API models path fixed (served from `/models`)
+
 - `BUILD_SUMMARY.md` - Comprehensive build documentation
 - `QUICK_START.md` - Step-by-step setup guide
 - `PROJECT_STATUS.md` - This file
@@ -242,6 +253,7 @@ GET /api/articles
   - XP rewards (10 XP per task)
   - Streak counter
   - Daily goals
+  - Level = `floor(totalXP/100)+1`
 
 ### 👥 Community Forum
 - Create and share posts
@@ -276,6 +288,7 @@ GET /api/articles
 - Rate limiting on APIs
 - HTTPS/SSL encryption
 - Helmet.js for security headers
+ - Centralized error logging/monitoring
 
 ---
 
@@ -356,6 +369,7 @@ GET /api/articles
 - [ ] Push notifications
 - [ ] Email integration
 - [ ] Social sharing features
+ - [ ] Sync client XP with server (optional)
 
 ### Phase 3: Optimization
 - [ ] Frontend minification

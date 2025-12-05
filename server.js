@@ -11,44 +11,7 @@ console.log('SERVER: env loaded');
 
 const app = express();
 console.log('SERVER: express app created');
-// Instrument route registration to log paths and detect invalid patterns
-const _origGet = app.get.bind(app);
-const _origPost = app.post.bind(app);
-const _origUse = app.use.bind(app);
-const _origDelete = app.delete ? app.delete.bind(app) : null;
-const { pathToRegexp } = require('path-to-regexp');
 
-app.get = (path, ...args) => {
-  console.log('[ROUTES] registering GET', path);
-  try { if (typeof path === 'string') pathToRegexp(path); } catch(e) { console.error('[ROUTES] pathToRegexp failed for GET', path, e); throw e; }
-  return _origGet(path, ...args);
-};
-app.post = (path, ...args) => {
-  console.log('[ROUTES] registering POST', path);
-  try { if (typeof path === 'string') pathToRegexp(path); } catch(e) { console.error('[ROUTES] pathToRegexp failed for POST', path, e); throw e; }
-  return _origPost(path, ...args);
-};
-app.use = (path, ...args) => {
-  try {
-    const pathDesc = typeof path === 'string' ? path : (path && path.name) ? path.name : '[Function]';
-    console.log('[ROUTES] registering USE', pathDesc);
-  } catch (e) {
-    console.log('[ROUTES] registering USE (unknown path)', e?.message || e);
-  }
-  try {
-    if (typeof path === 'string') { try { pathToRegexp(path); } catch(e) { console.error('[ROUTES] pathToRegexp failed for USE', path, e); throw e; } }
-    return _origUse(path, ...args);
-  } catch (err) {
-    console.error('[ROUTES] app.use error for', path, err && err.stack ? err.stack : err);
-    throw err;
-  }
-};
-if (_origDelete) {
-  app.delete = (path, ...args) => {
-    console.log('[ROUTES] registering DELETE', path);
-    return _origDelete(path, ...args);
-  };
-}
 // CORS configuration
 const allowedOrigin = process.env.FRONTEND_ORIGIN || '*';
 console.log('SERVER: allowedOrigin=', allowedOrigin);
@@ -78,7 +41,7 @@ try {
 app.use(corsMiddleware);
 
 // Ensure preflight requests are handled
-app.options('*', cors());
+app.options(/.*/, cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -946,36 +909,37 @@ app.get('/api/tasks/:email', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch tasks' });
-  // Delete task endpoint
-  app.delete('/api/tasks', async (req, res) => {
-    const { email, task, date } = req.body;
-    if (!email || !task || !date) return res.status(400).json({ error: 'Missing task data' });
+  }
+});
 
-    try {
-      const user = await User.findOne({ email });
-      if (!user) return res.status(404).json({ error: 'User not found' });
+// Delete task endpoint (moved out of GET route)
+app.delete('/api/tasks', async (req, res) => {
+  const { email, task, date } = req.body;
+  if (!email || !task || !date) return res.status(400).json({ error: 'Missing task data' });
 
-      const taskDate = new Date(date);
-      taskDate.setHours(0, 0, 0, 0);
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-      // Find and remove the task
-      const taskIndex = user.dailyTasks.findIndex(t =>
-        t.task === task && t.date.getTime() === taskDate.getTime()
-      );
+    const taskDate = new Date(date);
+    taskDate.setHours(0, 0, 0, 0);
 
-      if (taskIndex === -1) {
-        return res.status(404).json({ error: 'Task not found' });
-      }
+    // Find and remove the task
+    const taskIndex = user.dailyTasks.findIndex(t =>
+      t.task === task && t.date.getTime() === taskDate.getTime()
+    );
 
-      user.dailyTasks.splice(taskIndex, 1);
-      await user.save();
-
-      res.json({ message: 'Task deleted successfully' });
-    } catch (err) {
-      console.error('Delete task error:', err);
-      res.status(500).json({ error: 'Failed to delete task' });
+    if (taskIndex === -1) {
+      return res.status(404).json({ error: 'Task not found' });
     }
-  });
+
+    user.dailyTasks.splice(taskIndex, 1);
+    await user.save();
+
+    res.json({ message: 'Task deleted successfully' });
+  } catch (err) {
+    console.error('Delete task error:', err);
+    res.status(500).json({ error: 'Failed to delete task' });
   }
 });
 

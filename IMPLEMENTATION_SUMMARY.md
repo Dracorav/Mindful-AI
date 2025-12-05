@@ -36,6 +36,21 @@
 
 ---
 
+## 🛠️ Recent Changes & Project-wide Updates
+
+- **Server routing fixes**: Removed a custom route-wrapping block that caused a runtime `path-to-regexp` error in Express 5. Also moved `DELETE /api/tasks` out of a nested route so it registers as a top-level route.
+- **Demo Mode**: Added a demo seed mechanism (use `?demo=true` or run on `localhost`) that seeds mood entries, tasks, XP, and a sample report for offline development and UI testing.
+- **Gamification / XP**: Implemented client-side XP system and integrated with tasks — completing a task awards `+10 XP`. Level calculation: `floor(totalXP / 100) + 1`.
+- **Dashboard resilience**: Charts now load with a fallback pipeline: API → localStorage → demo/hardcoded data, ensuring visualizations render even with no backend data.
+- **Face-api fix**: Client now loads face-api models from `/models` (served from `public/models`) to fix video detection issues.
+- **Shared header**: Extracted `public/css/header.css` and applied across pages for consistent, responsive navigation.
+- **Mini-games**: Added small calming/therapeutic mini-games to `game.html` for engagement and relaxation.
+- **Dev tooling**: Moved MongoDB connectivity test into `dev/test-mongodb.js` and documented demo/test usage in `QUICK_START.md`.
+- **Docs updates**: README, QUICK_START, BUILD_SUMMARY, and PROJECT_STATUS updated to reflect these changes.
+
+Note: Server run requires a valid `.env` with `MONGODB_URI` and `GOOGLE_API_KEY` unless using Demo Mode. See `QUICK_START.md` for details.
+
+
 ## 🔧 Backend Integration Complete
 
 ### 6 New API Endpoints Added to `server.js`:

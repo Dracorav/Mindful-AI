@@ -1,292 +1,429 @@
+// mood.js – interactive mood tracker
+// Uses API:
+//   POST /api/mood           { email, mood: { value, label, emoji, notes, date } }
+//   GET  /api/mood-history/:email  => { moodEntries: [...] }
+
 let selectedMood = null;
 let userEmail = null;
 let moodHistory = [];
+let moodChart = null;
 
-// Get user email from localStorage or session
+// Infer backend base URL (works for localhost:3000 and deployed)
+const API_BASE = window.location.origin;
+
+// --------------- Helpers ----------------
+
 function getCurrentUser() {
-    // Assuming user data is stored in localStorage after login
-    const userData = localStorage.getItem('currentUser');
-    if (userData) {
-        const user = JSON.parse(userData);
-        userEmail = user.email;
-        return user;
-    }
-    return null;
-}
-
-// Initialize the page
-function init() {
-    const userData = localStorage.getItem('currentUser');
-    if (!userData) {
-        alert("You are not logged in. Redirecting to login...");
-        window.location.href = "/login.html"; // change to your login page
-        return;
-    }
-
+  const userData = localStorage.getItem('currentUser');
+  if (!userData) return null;
+  try {
     const user = JSON.parse(userData);
     userEmail = user.email;
-
-    setupEventListeners();
-    loadMoodHistory();
+    return user;
+  } catch {
+    return null;
+  }
 }
 
-function setupEventListeners() {
-    // Mood selection
-    document.querySelectorAll('.mood-option').forEach(option => {
-        option.addEventListener('click', function() {
-            // Remove selection from all options
-            document.querySelectorAll('.mood-option').forEach(opt => {
-                opt.classList.remove('selected');
-            });
-            
-            // Select current option
-            this.classList.add('selected');
-            selectedMood = {
-                value: parseInt(this.dataset.mood),
-                label: this.dataset.label,
-                emoji: this.querySelector('.mood-emoji').textContent
-            };
-            
-            // Enable submit button
-            document.getElementById('submitMood').disabled = false;
-        });
-    });
-    
-    // Submit mood
-    document.getElementById('submitMood').addEventListener('click', submitMood);
-    
-    // History filter
-    document.getElementById('historyFilter').addEventListener('change', function() {
-        filterMoodHistory(this.value);
-    });
+function showToast(type, message) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+
+  const msgEl = toast.querySelector('.toast-message');
+  const iconEl = toast.querySelector('.toast-icon');
+
+  toast.classList.remove('toast--error', 'toast--success');
+  if (type === 'error') {
+    toast.classList.add('toast--error');
+    if (iconEl) iconEl.textContent = '⚠️';
+  } else {
+    toast.classList.add('toast--success');
+    if (iconEl) iconEl.textContent = '✅';
+  }
+  if (msgEl) msgEl.textContent = message;
+
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+function getHistoryFilterValue() {
+  const select = document.getElementById('historyFilter');
+  return select ? select.value : '7';
+}
+
+// Return filtered mood history according to selected days
+function getFilteredHistory(days) {
+  if (!moodHistory.length) return [];
+
+  if (days === 'all') return [...moodHistory];
+
+  const n = parseInt(days, 10);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - n);
+
+  return moodHistory.filter(entry => new Date(entry.date) >= cutoff);
+}
+
+// --------------- API Calls ----------------
+
+async function loadMoodHistory() {
+  if (!userEmail) return [];
+
+  try {
+    const res = await fetch(`${API_BASE}/api/mood-history/${encodeURIComponent(userEmail)}`);
+    if (!res.ok) {
+      console.error('Failed to load mood history:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    moodHistory = data.moodEntries || [];
+    return moodHistory;
+  } catch (err) {
+    console.error('Error loading mood history:', err);
+    return [];
+  }
 }
 
 async function submitMood() {
-    if (!selectedMood || !userEmail) return;
+  if (!selectedMood || !userEmail) return;
 
-    const moodData = {
-        email: userEmail,
-        mood: {
-            value: selectedMood.value,
-            label: selectedMood.label,
-            emoji: selectedMood.emoji,
-            notes: document.getElementById('moodNotes').value.trim(),
-            date: new Date().toISOString()
-        }
-    };
+  const notesInput = document.getElementById('moodNotes');
+  const slider = document.getElementById('moodSlider');
+  const submitBtn = document.getElementById('submitMood');
 
-    try {
-        const response = await fetch('http://localhost:3000/api/mood', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(moodData)
-        });
+  const value = slider ? parseInt(slider.value, 10) : selectedMood.value || 5;
+  const notes = notesInput ? notesInput.value.trim() : '';
 
-        if (response.ok) {
-            showMessage('successMessage', 'Mood logged successfully! 🎉');
-            resetForm();
-            loadMoodHistory();
-        } else {
-            throw new Error('Failed to submit mood');
-        }
-    } catch (error) {
-        console.error('Error submitting mood:', error);
-        showMessage('errorMessage', 'Failed to log mood. Please try again.');
+  const moodPayload = {
+    email: userEmail,
+    mood: {
+      value,
+      label: selectedMood.label,
+      emoji: selectedMood.emoji,
+      notes,
+      date: new Date().toISOString()
     }
+  };
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span class="icon">⏳</span><span>Saving…</span>`;
+    }
+
+    const res = await fetch(`${API_BASE}/api/mood`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(moodPayload)
+    });
+
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+    showToast('success', 'Mood logged successfully 🎉');
+    resetForm();
+    await refreshMoodUI(); // reload stats, chart, history
+  } catch (err) {
+    console.error('Error submitting mood:', err);
+    showToast('error', 'Failed to save mood. Please try again.');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<span class="icon">💾</span><span>Save today’s mood</span>`;
+    }
+  }
 }
+
+// --------------- UI Update Functions ----------------
 
 function resetForm() {
-    // Clear selection
-    document.querySelectorAll('.mood-option').forEach(opt => {
-        opt.classList.remove('selected');
-    });
-    
-    // Clear notes
-    document.getElementById('moodNotes').value = '';
-    
-    // Reset variables
-    selectedMood = null;
-    document.getElementById('submitMood').disabled = true;
+  document.querySelectorAll('.mood-option').forEach(opt => {
+    opt.classList.remove('selected');
+  });
+  selectedMood = null;
+
+  const notesInput = document.getElementById('moodNotes');
+  if (notesInput) notesInput.value = '';
+
+  const slider = document.getElementById('moodSlider');
+  const sliderValue = document.getElementById('moodSliderValue');
+  if (slider) slider.value = 6;
+  if (sliderValue) sliderValue.textContent = '6';
+
+  document
+    .querySelectorAll('.tag-pill')
+    .forEach(tag => tag.classList.remove('active'));
+
+  const submitBtn = document.getElementById('submitMood');
+  if (submitBtn) submitBtn.disabled = true;
 }
 
-async function loadMoodHistory() {
-    if (!userEmail) return;
+function displayMoodHistory(days) {
+  const container = document.getElementById('moodHistory');
+  if (!container) return;
 
-    try {
-        const response = await fetch(`http://localhost:3000/api/mood-history/${userEmail}`);
-        if (response.ok) {
-            const data = await response.json();
-            moodHistory = data.moodEntries || [];
-            displayMoodHistory();
-            updateStats();
-        } else {
-            console.error('Failed to load mood history');
-        }
-    } catch (error) {
-        console.error('Error loading mood history:', error);
-    }
-}
+  const list = getFilteredHistory(days);
+  if (!list.length) {
+    container.innerHTML = `<div class="no-data">No mood entries for this period. Start logging to see your trends 💙</div>`;
+    return;
+  }
 
-function displayMoodHistory(days = 7) {
-    const historyContainer = document.getElementById('moodHistory');
-    
-    if (moodHistory.length === 0) {
-        historyContainer.innerHTML = '<div class="no-data">No mood entries yet. Start tracking your mood today!</div>';
-        return;
-    }
-    
-    // Filter by days
-    let filteredHistory = moodHistory;
-    if (days !== 'all') {
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
-        filteredHistory = moodHistory.filter(entry => new Date(entry.date) >= cutoffDate);
-    }
-    
-    // Sort by date (newest first)
-    filteredHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    if (filteredHistory.length === 0) {
-        historyContainer.innerHTML = '<div class="no-data">No mood entries in selected time period.</div>';
-        return;
-    }
-    
-    const historyHTML = filteredHistory.map(entry => {
-        const date = new Date(entry.date);
-        const dateStr = date.toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            month: 'short', 
-            day: 'numeric' 
-        });
-        
-        return `
-            <div class="mood-entry">
-                <div class="entry-date">${dateStr}</div>
-                <div class="entry-mood">${entry.emoji}</div>
-                <div class="entry-details">
-                    <div class="entry-label">${entry.label}</div>
-                    ${entry.notes ? `<div class="entry-notes">"${entry.notes}"</div>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    historyContainer.innerHTML = historyHTML;
-}
+  // Sort newest first
+  list.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-function filterMoodHistory(days) {
-    displayMoodHistory(days);
+  const html = list
+    .map(entry => {
+      const date = new Date(entry.date);
+      const dateLabel = date.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+
+      return `
+        <div class="mood-entry">
+          <div class="entry-date">${dateLabel}</div>
+          <div class="entry-mood">${entry.emoji || '🙂'}</div>
+          <div class="entry-details">
+            <div class="entry-label">${entry.label || 'Mood'}</div>
+            ${
+              entry.notes
+                ? `<div class="entry-notes">“${entry.notes.replace(/"/g, '&quot;')}”</div>`
+                : ''
+            }
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  container.innerHTML = html;
 }
 
 function updateStats() {
-    if (moodHistory.length === 0) {
-        document.getElementById('avgMood').textContent = '-';
-        document.getElementById('totalEntries').textContent = '0';
-        document.getElementById('streakDays').textContent = '0';
-        return;
-    }
-    
-    // Calculate average mood
-    const avgMood = (moodHistory.reduce((sum, entry) => sum + entry.value, 0) / moodHistory.length).toFixed(1);
-    document.getElementById('avgMood').textContent = avgMood;
-    
-    // Total entries
-    document.getElementById('totalEntries').textContent = moodHistory.length;
-    
-    // Calculate streak (consecutive days with entries)
-    const streak = calculateStreak();
-    document.getElementById('streakDays').textContent = streak;
+  const avgEl = document.getElementById('avgMood');
+  const totalEl = document.getElementById('totalEntries');
+  const streakEl = document.getElementById('streakDays');
+
+  if (!moodHistory.length) {
+    if (avgEl) avgEl.textContent = '-';
+    if (totalEl) totalEl.textContent = '0';
+    if (streakEl) streakEl.textContent = '0';
+    return;
+  }
+
+  const total = moodHistory.length;
+  const sum = moodHistory.reduce((acc, entry) => acc + (entry.value || 0), 0);
+  const avg = (sum / total).toFixed(1);
+
+  if (avgEl) avgEl.textContent = avg;
+  if (totalEl) totalEl.textContent = total.toString();
+  if (streakEl) streakEl.textContent = calculateStreak().toString();
 }
 
 function calculateStreak() {
-    if (moodHistory.length === 0) return 0;
-    
-    const sortedEntries = [...moodHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
-    const today = new Date();
-    let streak = 0;
-    let currentDate = new Date(today);
-    
-    for (const entry of sortedEntries) {
-        const entryDate = new Date(entry.date);
-        const dayDiff = Math.floor((currentDate - entryDate) / (1000 * 60 * 60 * 24));
-        
-        if (dayDiff <= streak + 1) {
-            streak++;
-            currentDate.setDate(currentDate.getDate() - 1);
-        } else {
-            break;
-        }
+  if (!moodHistory.length) return 0;
+
+  // Work with unique days (one per calendar day)
+  const daysSet = new Set(
+    moodHistory.map(entry =>
+      new Date(entry.date).toISOString().split('T')[0]
+    )
+  );
+  const days = Array.from(daysSet).sort(); // ascending YYYY-MM-DD
+
+  let streak = 0;
+  let current = new Date();
+  current.setHours(0, 0, 0, 0);
+
+  // Walk backwards from today and see how many consecutive days exist
+  // in the set of recorded days.
+  while (true) {
+    const key = current.toISOString().split('T')[0];
+    if (daysSet.has(key)) {
+      streak += 1;
+      current.setDate(current.getDate() - 1);
+    } else {
+      break;
     }
-    
-    return streak;
+  }
+
+  return streak;
 }
 
-function showMessage(elementId, message) {
-    const element = document.getElementById(elementId);
-    element.textContent = message;
-    element.style.display = 'block';
-    
-    setTimeout(() => {
-        element.style.display = 'none';
-    }, 3000);
+function renderChart(days) {
+  const ctx = document.getElementById('moodChart');
+  if (!ctx) return;
+
+  const dataList = getFilteredHistory(days);
+  if (!dataList.length) {
+    if (moodChart) {
+      moodChart.destroy();
+      moodChart = null;
+    }
+    return;
+  }
+
+  const sorted = [...dataList].sort(
+    (a, b) => new Date(a.date) - new Date(b.date)
+  );
+
+  const labels = sorted.map(entry =>
+    new Date(entry.date).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric'
+    })
+  );
+  const values = sorted.map(entry => entry.value || 0);
+
+  if (moodChart) {
+    moodChart.destroy();
+  }
+
+  moodChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Mood score',
+          data: values,
+          tension: 0.35,
+          borderWidth: 2,
+          borderColor: '#189ab4',
+          backgroundColor: 'rgba(24, 154, 180, 0.20)',
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0,
+          max: 10,
+          ticks: {
+            stepSize: 2
+          }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const value = ctx.parsed.y;
+              return `Mood: ${value}/10`;
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
-function displayMoodTrends() {
-    const ctx = document.getElementById('moodChart').getContext('2d');
+async function refreshMoodUI() {
+  await loadMoodHistory();
+  const filter = getHistoryFilterValue();
+  updateStats();
+  displayMoodHistory(filter);
+  renderChart(filter);
+}
 
-    // Prepare data for the chart
-    const labels = moodHistory.map(entry => new Date(entry.date).toLocaleDateString());
-    const data = moodHistory.map(entry => entry.value);
+// --------------- Event Listeners ----------------
 
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Mood Over Time',
-                data: data,
-                borderColor: '#189ab4',
-                backgroundColor: 'rgba(24, 154, 180, 0.2)',
-                fill: true,
-            }],
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    display: true,
-                },
-            },
-        },
+function setupEventListeners() {
+  // Mood options
+  document.querySelectorAll('.mood-option').forEach(option => {
+    option.addEventListener('click', () => {
+      document
+        .querySelectorAll('.mood-option')
+        .forEach(opt => opt.classList.remove('selected'));
+
+      option.classList.add('selected');
+
+      const emojiEl = option.querySelector('.mood-emoji');
+      selectedMood = {
+        label: option.dataset.label,
+        emoji: emojiEl ? emojiEl.textContent : '🙂'
+      };
+
+      // Sync slider with default value attached to option
+      const defaultValue = parseInt(option.dataset.mood, 10) || 6;
+      const slider = document.getElementById('moodSlider');
+      const sliderValue = document.getElementById('moodSliderValue');
+      if (slider) slider.value = defaultValue;
+      if (sliderValue) sliderValue.textContent = String(defaultValue);
+
+      const submitBtn = document.getElementById('submitMood');
+      if (submitBtn) submitBtn.disabled = false;
     });
+  });
 
-    // Update insights
-    updateInsights();
-}
-
-function updateInsights() {
-    if (moodHistory.length === 0) return;
-
-    // Most common mood
-    const moodCounts = moodHistory.reduce((acc, entry) => {
-        acc[entry.label] = (acc[entry.label] || 0) + 1;
-        return acc;
-    }, {});
-    const commonMood = Object.keys(moodCounts).reduce((a, b) => (moodCounts[a] > moodCounts[b] ? a : b));
-    document.getElementById('commonMood').textContent = `Most Common Mood: ${commonMood}`;
-
-    // Top triggers (placeholder logic)
-    document.getElementById('moodTriggers').textContent = 'Top Triggers: Work, Family';
-}
-
-// Call displayMoodTrends after loading mood history
-document.addEventListener('DOMContentLoaded', () => {
-    loadMoodHistory().then(() => {
-        displayMoodTrends();
+  // Slider
+  const slider = document.getElementById('moodSlider');
+  if (slider) {
+    const sliderValue = document.getElementById('moodSliderValue');
+    slider.addEventListener('input', () => {
+      if (sliderValue) sliderValue.textContent = slider.value;
     });
-});
+  }
 
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', init);
+  // Quick tags (append to notes)
+  document.querySelectorAll('.tag-pill').forEach(tag => {
+    tag.addEventListener('click', () => {
+      tag.classList.toggle('active');
+      const notesInput = document.getElementById('moodNotes');
+      if (!notesInput) return;
+
+      const tagText = `#${tag.dataset.tag}`;
+      const current = notesInput.value || '';
+
+      if (tag.classList.contains('active')) {
+        // Add tag if not present
+        if (!current.includes(tagText)) {
+          notesInput.value = current.length
+            ? `${current} ${tagText}`
+            : tagText;
+        }
+      } else {
+        // Remove tag
+        notesInput.value = current.replace(tagText, '').replace(/\s{2,}/g, ' ').trim();
+      }
+    });
+  });
+
+  // Submit button
+  const submitBtn = document.getElementById('submitMood');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', submitMood);
+  }
+
+  // Filter change
+  const filterSelect = document.getElementById('historyFilter');
+  if (filterSelect) {
+    filterSelect.addEventListener('change', () => {
+      const days = filterSelect.value;
+      displayMoodHistory(days);
+      renderChart(days);
+    });
+  }
+}
+
+// --------------- Init ----------------
+
+function initMoodPage() {
+  const user = getCurrentUser();
+  if (!user || !user.email) {
+    alert('You are not logged in. Redirecting to login...');
+    window.location.href = '/login.html'; // adjust if your login is different
+    return;
+  }
+
+  setupEventListeners();
+  refreshMoodUI();
+}
+
+document.addEventListener('DOMContentLoaded', initMoodPage);

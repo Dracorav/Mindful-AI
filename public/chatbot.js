@@ -19,7 +19,7 @@ document.getElementById("questionnaire-form").onsubmit = function (event) {
   }, 300);
 };
 
-const API_KEY = "AIzaSyDfJkO67U6q_JifjzK4t2i4GTwsxcemnGE";
+const API_KEY = "AIzaSyBwWIBgqv53wyemRfUxBVJWs3tNT-rmn7M";
 const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 

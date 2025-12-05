@@ -52,6 +52,10 @@ Turn self-care into an adventure:
 - **Achievement badges** for milestones
 - **Streak tracking** to build lasting habits
 
+XP & Levels:
+- Earn `+10 XP` per completed task
+- Level = `floor(totalXP / 100) + 1`
+
 ---
 
 ## 🛠️ Built for the Future
@@ -62,6 +66,7 @@ Turn self-care into an adventure:
 | **MongoDB** | Secure, flexible data storage |
 | **Google Gemini AI** | State-of-the-art conversational AI |
 | **HTML5/CSS3/JS** | Beautiful, responsive interface |
+| **Chart.js** | Mood/progress visualization with smart fallbacks |
 
 ---
 
@@ -76,8 +81,8 @@ Turn self-care into an adventure:
 
 ```bash
 # Clone and enter
-git clone [https://github.com/mraasary/AsDevAd---AI-Mental-Health-Companion.git]
-cd Mindful AI
+git clone https://github.com/mraasary/AsDevAd---AI-Mental-Health-Companion.git
+cd AsDevAd---AI-Mental-Health-Companion
 
 # Install magic
 npm install
@@ -88,10 +93,13 @@ PORT=3000
 MONGODB_URI=mongodb://localhost:27017/shadowsDB" > .env
 
 # Launch your mental health companion
-mongod & node server.js
+node server.js
 ```
 
 **Visit:** http://localhost:3000
+
+Tip: Add `?demo=true` to any page URL to run in Demo Mode (no database required). Example:
+`http://localhost:3000/public/dashboard.html?demo=true`
 
 ---
 
@@ -143,6 +151,14 @@ mongod & node server.js
 ## 📄 License
 
 MIT License - Feel free to use, modify, and distribute.
+
+---
+
+## 🧩 Developer Notes
+- Demo Mode is available via `?demo=true` and auto-enables on localhost; seeds mood, tasks, XP, and a sample report.
+- Dashboard charts load data using a resilient pipeline: API → localStorage → demo data.
+- Shared navigation styles live at `public/css/header.css` and are used across pages for consistency.
+- Face API models are served from `public/models` and the client references `/models` paths.
 
 ---
 
